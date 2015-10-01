@@ -10,6 +10,7 @@ const UserList = require('./userlist.jsx'),
 
 const Ting = React.createClass({
     _socket: null,
+    _onStartTypingResponse: function() {},
     onLogin(username, people) {
         this.refs.history.onLogin(username, people);
         this.refs.messageForm.onLogin(username, people);
@@ -32,9 +33,7 @@ const Ting = React.createClass({
 
         return {
             channel,
-            intendedUsername: null,
-            // TODO(dionyziz): race conditions and queues
-            currentMessageId: null
+            intendedUsername: null
         };
     },
     componentWillMount() {
@@ -72,7 +71,7 @@ const Ting = React.createClass({
         );
 
         this._socket.on('start-typing-response', (messageid) => {
-            this.setState({currentMessageId: messageid});
+            this._onStartTypingResponse(messageid);
         });
 
         this._socket.on('update-typing-messages', (messagesTyping) => {
@@ -81,43 +80,33 @@ const Ting = React.createClass({
 
         Analytics.init();
     },
-    onMessageSubmit(message) {
-        if (this.state.currentMessageId == null) {
-            //console.log('Skipping message submit');
-            return;
-        }
-
+    onMessageSubmit(text, messageid) {
         const data = {
             type: 'channel',
             target: this.state.channel,
-            text: message,
-            messageid: this.state.currentMessageId
+            text: text,
+            messageid: messageid
         };
         this._socket.emit('message', data);
 
-        Analytics.onMessageSubmit(message);
-
-        this.setState({currentMessageId: null});
+        Analytics.onMessageSubmit(text);
     },
-    onStartTyping(message) {
+    onStartTyping(text, responseCallback) {
         var data = {
             type: 'channel',
             target: this.state.channel,
-            text: message
+            text: text
         };
         this._socket.emit('start-typing', data);
-    },
-    onTypingUpdate(message) {
-        if (this.state.currentMessageId == null) {
-            //console.log('Skipping typing-update');
-            return;
-        }
 
+        this._onStartTypingResponse = responseCallback;
+    },
+    onTypingUpdate(text, messageid) {
         var data = {
             type: 'channel',
             target: this.state.channel,
-            text: message,
-            messageid: this.state.currentMessageId
+            text: text,
+            messageid: messageid
         };
         this._socket.emit('typing-update', data);
     },

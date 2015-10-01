@@ -6,6 +6,7 @@ const MessageForm = React.createClass({
     _MIN_UPDATE_WHEN_STOPPED: 500,
     _lastUpdate: 0,
     _lastUpdateTimeout: null,
+    queue: null,
     getInitialState() {
         return {
             message: ''
@@ -17,7 +18,7 @@ const MessageForm = React.createClass({
         var message = this.state.message;
 
         if (message.trim().length > 0) {
-            this.props.onMessageSubmit(message);
+            this.queue.enqueue(new MessageSubmit(message));
 
             React.findDOMNode(this.refs.inputField).value = '';
         }
@@ -34,10 +35,10 @@ const MessageForm = React.createClass({
 
         if (message.trim().length > 0) {
             if (this.state.message == '') {
-                this.props.onStartTyping(message);
+                this.queue.enqueue(new MessageStartTyping(message));
             }
             else if (Date.now() - this._lastUpdate >= this._MIN_UPDATE_WHILE_TYPING) {
-                this.props.onTypingUpdate(message);
+                this.queue.enqueue(new MessageTypingUpdate(message));
                 this._lastUpdate = Date.now();
                 clearTimeout(this._lastUpdateTimeout);
             }
@@ -49,9 +50,16 @@ const MessageForm = React.createClass({
             }
         }
         else if (this.state.message.trim().length > 0) { // message was deleted
-            this.props.onTypingUpdate(message);
+            this.queue.enqueue(new MessageTypingUpdate(message));
         }
         this.setState({message});
+    },
+    componentWillMount() {
+        this.queue = new MessageQueue(
+            this.onMessageSubmit,
+            this.onStartTyping,
+            this.onTypingUpdate
+        );
     },
     render() {
         return (
